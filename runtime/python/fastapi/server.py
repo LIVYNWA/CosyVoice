@@ -90,12 +90,26 @@ if __name__ == '__main__':
                         type=str,
                         default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
+    parser.add_argument('--use_vllm', action='store_true', help='use vllm for inference')
+    parser.add_argument('--use_jit', action='store_true', help='use jit for inference')
+    parser.add_argument('--use_trt', action='store_true', help='use trt for inference')
+    parser.add_argument('--fp16', action='store_true', help='use fp16 for inference')
     args = parser.parse_args()
+    if args.use_vllm:
+        from vllm import ModelRegistry
+        from cosyvoice.vllm.cosyvoice2 import CosyVoice2ForCausalLM
+        ModelRegistry.register_model("CosyVoice2ForCausalLM", CosyVoice2ForCausalLM)
     try:
+        if args.use_vllm:
+            raise ValueError("vLLM is not supported in CosyVoice-1.0, trying to load CosyVoice-2.0")
         cosyvoice = CosyVoice(args.model_dir)
     except Exception:
         try:
-            cosyvoice = CosyVoice2(args.model_dir)
+            cosyvoice = CosyVoice2(args.model_dir,
+                                   load_jit=args.use_jit,
+                                   load_trt=args.use_trt,
+                                   load_vllm=args.use_vllm,
+                                   fp16=args.fp16)
         except Exception:
             raise TypeError('no valid model_type!')
     uvicorn.run(app, host="0.0.0.0", port=args.port)
